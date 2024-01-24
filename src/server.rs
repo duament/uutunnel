@@ -1,8 +1,13 @@
 use crate::Args;
+use bincode::{Decode, Encode};
+use log::{error, trace};
+use std::{
+    io,
+    net::{SocketAddr, SocketAddrV4},
+    sync::Arc,
+};
 use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
-use std::{io, net::{SocketAddr, SocketAddrV4}, sync::Arc};
-use bincode::{Encode, Decode};
 
 static TX_LEN: usize = 12;
 
@@ -15,13 +20,13 @@ struct TX {
 
 pub async fn run(args: Args) -> io::Result<()> {
     let ssock = UdpSocket::bind(args.listen).await?;
-    let srx = Arc::new(ssock);  // server rx
-    let stx = srx.clone();  // server tx
+    let srx = Arc::new(ssock); // server rx
+    let stx = srx.clone(); // server tx
 
     let csock = UdpSocket::bind("[::]:0").await?;
     csock.connect(args.uu_server).await?;
-    let crx = Arc::new(csock);  // client rx
-    let ctx = crx.clone();  // client tx
+    let crx = Arc::new(csock); // client rx
+    let ctx = crx.clone(); // client tx
 
     let addr_raw: SocketAddr = "0.0.0.0:0".parse().unwrap();
     let addr = Arc::new(Mutex::new(addr_raw));
@@ -37,13 +42,21 @@ pub async fn run(args: Args) -> io::Result<()> {
     Ok(())
 }
 
-async fn start_tx(addr: Arc<Mutex<SocketAddr>>, srx: Arc<UdpSocket>, ctx: Arc<UdpSocket>, target: &str, magic: [u8; 4]) {
+async fn start_tx(
+    addr: Arc<Mutex<SocketAddr>>,
+    srx: Arc<UdpSocket>,
+    ctx: Arc<UdpSocket>,
+    target: &str,
+    magic: [u8; 4],
+) {
     // Receive packets from local client and forward it to UU server
     let mut sbuf = [0; 1500];
-    let bincode_config = bincode::config::standard().with_big_endian().with_fixed_int_encoding();
+    let bincode_config = bincode::config::standard()
+        .with_big_endian()
+        .with_fixed_int_encoding();
     loop {
         let (len, client_addr) = srx.recv_from(&mut sbuf[TX_LEN..]).await.unwrap();
-        println!("{:?} bytes received from {:?}", len, client_addr);
+        trace!("{:?} bytes received from {:?}", len, client_addr);
 
         let header = TX {
             magic,
@@ -56,8 +69,8 @@ async fn start_tx(addr: Arc<Mutex<SocketAddr>>, srx: Arc<UdpSocket>, ctx: Arc<Ud
             let mut addr = addr.lock().await;
             *addr = client_addr;
         }
-        let len = ctx.send(&sbuf[..len+TX_LEN]).await.unwrap();
-        println!("{:?} bytes sent", len);
+        let len = ctx.send(&sbuf[..len + TX_LEN]).await.unwrap();
+        trace!("{:?} bytes sent", len);
     }
 }
 
@@ -68,11 +81,11 @@ async fn start_rx(addr: Arc<Mutex<SocketAddr>>, crx: Arc<UdpSocket>, stx: Arc<Ud
         let len = match crx.recv(&mut cbuf).await {
             Ok(len) => len,
             Err(err) => {
-                println!("client recv error: {}", err);
+                error!("client recv error: {}", err);
                 continue;
-            },
+            }
         };
-        println!("{:?} bytes received", len);
+        trace!("{:?} bytes received", len);
         let addr = {
             let addr = addr.lock().await;
             *addr
