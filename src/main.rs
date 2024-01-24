@@ -27,11 +27,11 @@ fn parse_magic(s: &str) -> Result<[u8; 4], ParseIntError> {
         let hex_str = {
             let len = (n + 1) * 2 - 1;
             if s.len() == len {
-                let pos = s.len() - (n + 1) * 2 + 1;
-                &s[pos..1]
+                let pos = s.len() + 1 - (n + 1) * 2;
+                &s[pos..pos + 1]
             } else if s.len() > len {
                 let pos = s.len() - (n + 1) * 2;
-                &s[pos..2]
+                &s[pos..pos + 2]
             } else {
                 continue;
             }
