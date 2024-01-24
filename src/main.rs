@@ -47,3 +47,18 @@ async fn main() -> io::Result<()> {
     server::run(args).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_magic() {
+        assert_eq!(parse_magic("0xa").unwrap(), [0, 0, 0, 0xa]);
+        assert_eq!(parse_magic("176c").unwrap(), [0, 0, 0x17, 0x6c]);
+        assert_eq!(parse_magic("0x000a91").unwrap(), [0, 0, 0xa, 0x91]);
+        assert_eq!(parse_magic("80000a91").unwrap(), [0x80, 0, 0xa, 0x91]);
+        assert!(parse_magic("+").is_err());
+        assert!(parse_magic("0x1g").is_err());
+    }
+}
