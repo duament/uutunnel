@@ -43,6 +43,7 @@ fn parse_magic(s: &str) -> Result<[u8; 4], ParseIntError> {
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
+    env_logger::init();
     let args = Args::parse();
     server::run(args).await?;
     Ok(())
